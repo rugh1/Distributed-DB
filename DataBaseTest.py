@@ -19,15 +19,41 @@ class Test(ABC):
 
     @abstractmethod
     def is_locked(self, mutex):
+        """
+                Checks if a given mutex is locked.
+
+                Args:
+                    mutex: The mutex object to check.
+
+                Returns:
+                    bool: True if the mutex is locked, False otherwise.
+        """
         pass
 
     @abstractmethod
     def get_func_runner(self, func, args):
+        """
+                Creates a new thread or process to run the given function with the specified arguments.
+
+                Args:
+                    func: The function to run.
+                    args: The arguments to pass to the function.
+
+                Returns:
+                    Thread or Process: The created thread or process.
+        """
         pass
 
     @staticmethod
     def create_empty_pickle_file(file_name):
-        """Creates an empty pickle file with an empty dictionary."""
+        """Creates an empty pickle file with an empty dictionary.
+
+            Args:
+                file_name (str): The name of the file to create.
+
+            Raises:
+                FileCreationError: If the file cannot be created.
+        """
         try:
             with open(file_name, 'wb') as f:
                 pickle.dump({}, f)
@@ -37,7 +63,15 @@ class Test(ABC):
 
     @staticmethod
     def delete_pickle_file(file_name):
-        """Deletes the pickled file."""
+        """
+        Deletes the pickled file.
+
+        Args:
+            file_name (str): The name of the file to delete.
+
+        Raises:
+            FileDeletionError: If the file cannot be deleted.
+        """
         try:
             os.remove(file_name)
             print(f"Deleted {file_name}.")
@@ -49,6 +83,9 @@ class Test(ABC):
             print(f"Error deleting {file_name}: {e}")
 
     def run_test(self):
+        """
+                Runs a series of tests to validate database operations.
+        """
         print('testing simple_write_permission')
         self.test_simple_write_permission()
         print('testing simple_read_permission')
@@ -75,23 +112,28 @@ class Test(ABC):
         print('done testing deleted test file')
 
     def test_simple_write_permission(self):
+        # tests simple write permission asserts that worked
         assert not self.is_locked(self.db.lock), 'Database should initially be unlocked for writing.'
         self.db.set_value('key1', 'value1')
         assert not self.is_locked(self.db.lock), 'Database should be unlocked after write operation.'
         assert self.db.db.get('key1') == 'value1', 'failed to write'
 
     def test_simple_read_permission(self):
+        # tests simple read permission asserts that worked
         assert not self.is_locked(self.db.semaphore), 'Database should initially be unlocked for reading.'
         self.db.get_value('key1')
         assert not self.is_locked(self.db.semaphore), 'Database should be unlocked after read operation.'
 
     def reader_no_read_during_write(self, tmp):
+        # function for process/thread
         self.db.get_value('key1')
 
     def writer_no_read_during_write(self, tmp):
+        # function for process/thread
         self.db.set_value('key1', 'value2', 1)
 
     def test_no_read_during_write(self):
+        # tests read permission during writing asserts that worked
         read_func = self.get_func_runner(self.reader_no_read_during_write, (self,))
         write_func = self.get_func_runner(self.writer_no_read_during_write, (self,))
         write_func.start()
@@ -102,10 +144,12 @@ class Test(ABC):
         assert not self.is_locked(self.db.semaphore), 'write lock should be released.'
 
     def reader_multiple_readers(self, tmp):
+        # function for process/thread
         assert not self.is_locked(self.db.semaphore), 'accesses should be granted'
         self.db.get_value('key1')
 
     def test_multiple_readers(self):
+        # tests multiple readers asserts that worked
         readers = [self.get_func_runner(self.reader_multiple_readers, (self,)) for _ in range(self.db.MAX_READ)]
         for reader_thread in readers:
             reader_thread.start()
@@ -114,13 +158,15 @@ class Test(ABC):
             reader_thread.join()
 
     def reader_write_after_multiple_readers(self, tmp):
+        # function for process/thread
         self.db.get_value('key1', 1)
 
     def writer_write_after_multiple_readers(self, tmp):
+        # function for process/thread
         self.db.set_value('key1', 'value3', 1.5)
 
     def test_write_after_multiple_readers(self):
-
+        # tests write after multiple readers asserts that worked
         readers = [self.get_func_runner(self.reader_write_after_multiple_readers, (self,)) for _ in
                    range(self.db.MAX_READ)]
         writer_thread = self.get_func_runner(self.writer_write_after_multiple_readers, (self,))
